@@ -1,8 +1,8 @@
 import React from "react";
 import { View, FlatList, Text, Button, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { NavigationProps } from "../types";
 import { useContacts } from "../hooks/useContacts";
+import { NavigationProps } from "../types";
 
 export const ContactListScreen: React.FC = () => {
   const { contacts } = useContacts();
