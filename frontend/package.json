@@ -13,11 +13,11 @@
     "@react-navigation/stack": "^7.0.6",
     "axios": "^1.7.7",
     "expo": "~52.0.11",
+    "expo-local-authentication": "^15.0.1",
+    "expo-location": "^18.0.2",
     "expo-status-bar": "~2.0.0",
-    "leaflet": "^1.9.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-leaflet": "^4.2.1",
     "react-native": "0.76.3",
     "react-native-dotenv": "^3.4.11",
     "react-native-maps": "^1.20.1",
@@ -29,7 +29,6 @@
     "@babel/core": "^7.25.2",
     "@types/node": "^22.9.3",
     "@types/react": "~18.3.12",
-    "@types/react-leaflet": "^2.8.3",
     "typescript": "^5.3.3"
   },
   "private": true

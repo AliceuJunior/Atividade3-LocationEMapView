@@ -1,4 +1,4 @@
 declare module "@env" {
-    export const BACKEND_URL: string;
+    export const EXPO_PUBLIC_BACKEND_URL: string;
   }
   

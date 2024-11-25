@@ -6,7 +6,7 @@ export type RootStackParamList = {
   Home: undefined;
   ContactList: undefined;
   AddContact: undefined;
-  Location: { id: number };
+  Location: { contact: Contact };
 };
 
 // Tipagem para `useNavigation`
@@ -16,13 +16,12 @@ export type NavigationProps<T extends keyof RootStackParamList> = StackNavigatio
 export type RouteProps<T extends keyof RootStackParamList> = RouteProp<RootStackParamList, T>;
 
 export interface Contact {
-    id: number; // ID único para identificar o contato
-    name: string; // Nome do contato
-    address: string; // Endereço do contato
-    location: {
-      latitude: number; // Latitude
-      longitude: number; // Longitude
-    };
-  }
+  id?: number;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
   
   

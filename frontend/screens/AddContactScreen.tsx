@@ -1,114 +1,148 @@
-import React, { useState } from "react";
-import { View, TextInput, Button, StyleSheet, Alert } from "react-native";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import axios from "axios";
-import { useContacts } from "../hooks/useContacts";
-import { useNavigation } from "@react-navigation/native";
-import { NavigationProps } from "../types";
+import React, { useState, useEffect } from "react";
+import { View, TextInput, TouchableOpacity, Text, StyleSheet, Alert, ScrollView } from "react-native";
+import MapView, { MapPressEvent, Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { RootStackParamList } from "../types";
+import * as Location from 'expo-location';
+import { addContactToServer } from "../services/contactsService";
+import { StackNavigationProp } from "@react-navigation/stack";
 
-const MapClickHandler: React.FC<{ setLocation: (location: { latitude: number; longitude: number }) => void }> = ({ setLocation }) => {
-  useMapEvents({
-    click: (e) => {
-      const { lat, lng } = e.latlng;
-      setLocation({ latitude: lat, longitude: lng });
-    },
-  });
 
-  return null; // Apenas registra eventos no mapa
-};
+type ContactFormScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AddContact'>;
 
-export const AddContactScreen: React.FC = () => {
-  const { addContact } = useContacts();
-  const navigation = useNavigation<NavigationProps<"AddContact">>();
+interface Props {
+  navigation: ContactFormScreenNavigationProp;
+}
 
-  // Estados para as informações
-  const [name, setName] = useState("");
-  const [cep, setCep] = useState("");
-  const [street, setStreet] = useState("");
-  const [number, setNumber] = useState("");
-  const [neighborhood, setNeighborhood] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [location, setLocation] = useState({ latitude: 0, longitude: 0 });
+// Função principal do componente
+export const AddContactScreen: React.FC<Props>  = ({ navigation }) => {
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  // Função para buscar o CEP
-  const handleCepSearch = async () => {
-    if (!cep || cep.length !== 8) {
-      Alert.alert("Erro", "Informe um CEP válido com 8 dígitos.");
+  const getPermissions = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Erro', 'Permissão de localização não concedida');
+      return;
+    }
+  };
+
+  useEffect(() => {
+    getPermissions(); // Solicita as permissões quando o componente é montado
+  }, []);
+
+  const handleMapPress = async (event: MapPressEvent) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setSelectedLocation({ latitude, longitude });
+
+    try {
+      const location = await Location.reverseGeocodeAsync({ latitude, longitude });
+
+      if (location.length > 0) {
+        const { street, name, city, region, postalCode, country } = location[0];
+        const fullAddress = `${street ?? ''} ${name ?? ''}, ${city ?? ''} - ${region ?? ''}, ${postalCode ?? ''}, ${country ?? ''}`;
+        setAddress(fullAddress);
+      } else {
+        setAddress('Endereço não encontrado');
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível obter o endereço do local selecionado.');
+      console.error('Geocoding error:', error);
+    }
+  };
+
+  const handleAddContact = async () => {
+    if (!selectedLocation) {
+      Alert.alert('Erro', 'Por favor, selecione um local no mapa.');
       return;
     }
 
     try {
-      const response = await axios.get(`https://viacep.com.br/ws/${cep}/json/`);
-      const { logradouro, bairro, localidade, uf, erro } = response.data;
-
-      if (erro) {
-        Alert.alert("Erro", "CEP não encontrado.");
-        return;
-      }
-
-      setStreet(logradouro || "");
-      setNeighborhood(bairro || "");
-      setCity(localidade || "");
-      setState(uf || "");
+      await addContactToServer({ name, address, latitude: selectedLocation.latitude, longitude: selectedLocation.longitude });
+      navigation.goBack();
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível buscar o CEP.");
+      Alert.alert('Erro', 'Não foi possível adicionar o contato.');
+      console.error('Add contact error:', error);
     }
-  };
-
-  // Função para adicionar contato
-  const handleAdd = async () => {
-    if (!name || !street || !number || !neighborhood || !city || !state || !location.latitude || !location.longitude) {
-      Alert.alert("Erro", "Preencha todos os campos!");
-      return;
-    }
-
-    const address = `${street}, ${number}, ${neighborhood}, ${city} - ${state}`;
-    await addContact({ id: 0, name, address, location });
-    Alert.alert("Sucesso", "Contato adicionado com sucesso!");
-    navigation.navigate("ContactList");
   };
 
   return (
     <View style={styles.container}>
-      <TextInput style={styles.input} placeholder="Nome" value={name} onChangeText={setName} />
       <TextInput
+        placeholder="Nome"
+        value={name}
+        onChangeText={setName}
         style={styles.input}
-        placeholder="CEP"
-        value={cep}
-        onChangeText={setCep}
-        keyboardType="numeric"
-        maxLength={8}
       />
-      <Button title="Buscar CEP" onPress={handleCepSearch} />
-
-      <TextInput style={styles.input} placeholder="Rua" value={street} onChangeText={setStreet} />
-      <TextInput style={styles.input} placeholder="Número" value={number} onChangeText={setNumber} keyboardType="numeric" />
-      <TextInput style={styles.input} placeholder="Bairro" value={neighborhood} onChangeText={setNeighborhood} />
-      <TextInput style={styles.input} placeholder="Cidade" value={city} onChangeText={setCity} />
-      <TextInput style={styles.input} placeholder="Estado" value={state} onChangeText={setState} />
-
-      <MapContainer
-        style={{ height: "50%", width: "100%" }}
-        center={[location.latitude, location.longitude]}
-        zoom={13}
+      <TextInput
+        placeholder="Endereço"
+        value={address}
+        onChangeText={setAddress}
+        style={styles.input}
+      />
+      <Text style={styles.addressText}>Endereço: {address}</Text>
+      <TouchableOpacity style={styles.saveButton} onPress={handleAddContact}>
+        <Text style={styles.saveButtonText}>Salvar</Text>
+      </TouchableOpacity>
+      <MapView
+        style={styles.map}
+        initialRegion={{
+          latitude: -23.2237,
+          longitude: -45.8992,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+        onPress={handleMapPress}
       >
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <Marker position={[location.latitude, location.longitude]} />
-        <MapClickHandler setLocation={setLocation} />
-      </MapContainer>
-
-      <Button title="Adicionar" onPress={handleAdd} />
+        {selectedLocation && (
+          <Marker
+            coordinate={selectedLocation}
+            title="Local Selecionado"
+          />
+        )}
+      </MapView>
+      {/* <Button title="Salvar" onPress={handleAddContact} color="#1E90FF" /> */}
+    
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 10 },
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+  },
   input: {
+    height: 40,
+    borderColor: '#ccc',
     borderWidth: 1,
-    borderRadius: 5,
+    borderRadius: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 8,
+    marginTop: 10
+  },
+  map: {
+    flex: 1,
+    width: '100%',
+    height: "100%",
+    marginTop: 16,
+  },
+  saveButton: {
+    backgroundColor: '#1E90FF',
     padding: 10,
-    marginBottom: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    width: "50%",
+    alignSelf: "center"
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
